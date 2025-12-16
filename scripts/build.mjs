@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = process.cwd();
+const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const srcRoot = path.join(repoRoot, 'src');
 
 const order = [
@@ -37,4 +38,3 @@ function build() {
 }
 
 build();
-
