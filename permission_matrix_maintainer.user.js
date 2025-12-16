@@ -1,3 +1,4 @@
+// ---- header.user.js ----
 // ==UserScript==
 // @name         权限矩阵维护工具（权限点/页面/角色合并绑定）
 // @namespace    https://local.example/permission-matrix
@@ -14,7 +15,9 @@
 (function () {
   'use strict';
 
+// ---- core/constants.js ----
   const STORAGE_KEY = 'permission_matrix_maintainer_config_v1';
+
   const DOM_IDS = Object.freeze({
     button: 'pmm_btn',
     overlay: 'pmm_overlay',
@@ -28,6 +31,7 @@
     ADD: 'add',
   });
 
+// ---- core/defaultConfig.js ----
   const defaultConfig = {
     ui: { title: '权限矩阵维护' },
     request: {
@@ -64,8 +68,7 @@
     },
   };
 
-  const configStore = createConfigStore(STORAGE_KEY, defaultConfig);
-
+// ---- core/configStore.js ----
   function deepMerge(base, override) {
     if (!override || typeof override !== 'object') return base;
     const out = Array.isArray(base) ? base.slice() : { ...base };
@@ -108,6 +111,8 @@
 
     return { read, write, reset };
   }
+
+  const configStore = createConfigStore(STORAGE_KEY, defaultConfig);
 
   function getConfig() {
     return configStore.read();
@@ -161,6 +166,15 @@
     return out;
   }
 
+  function debounce(fn, delayMs) {
+    let t = 0;
+    return (...args) => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(() => fn(...args), delayMs);
+    };
+  }
+
+// ---- infra/gmRequestJson.js ----
   function gmRequestJson({ method, url, headers, body, timeoutMs }) {
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
@@ -187,14 +201,7 @@
     });
   }
 
-  function debounce(fn, delayMs) {
-    let t = 0;
-    return (...args) => {
-      if (t) window.clearTimeout(t);
-      t = window.setTimeout(() => fn(...args), delayMs);
-    };
-  }
-
+// ---- ui/dom.js ----
   function el(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs || {})) {
@@ -210,6 +217,8 @@
     }
     return node;
   }
+
+// ---- ui/styles.js ----
   function injectStyles() {
     if (document.getElementById(DOM_IDS.styles)) return;
     const css = `
@@ -289,6 +298,7 @@
     document.head.appendChild(el('style', { id: DOM_IDS.styles }, css));
   }
 
+// ---- ui/logger.js ----
   function createLogger(logEl) {
     function line(level, msg) {
       const time = new Date().toLocaleTimeString();
@@ -304,6 +314,8 @@
       clear: () => (logEl.textContent = ''),
     };
   }
+
+// ---- ui/tableCard.js ----
   function createTableCard({ title, columns, onReload }) {
     const state = {
       data: [],
@@ -504,6 +516,8 @@
 
     return { el: card, reload, setData, setLoading, getSelectedIds, clearSelection };
   }
+
+// ---- ui/modal.js ----
   function createModal() {
     const modal = el(
       'div',
@@ -549,6 +563,8 @@
 
     return { open, close, resetBtn };
   }
+
+// ---- domain/api.js ----
   function normalizeList(raw, dataPath) {
     const data = getByPath(raw, dataPath);
     if (Array.isArray(data)) return data;
@@ -636,6 +652,8 @@
     }
     logger?.ok('绑定完成');
   }
+
+// ---- app/mount.js ----
   function mount() {
     injectStyles();
     if (document.getElementById(DOM_IDS.button)) return;
@@ -702,65 +720,65 @@
       { key: config.fields.permission.name || 'name', title: '名称' },
       { key: config.fields.permission.id || 'id', title: 'ID' },
     ];
-      const pageCols = [
-        { key: config.fields.page.path || 'path', title: 'Path' },
-        { key: config.fields.page.name || 'name', title: '名称' },
-        { key: config.fields.page.id || 'id', title: 'ID' },
-      ];
+    const pageCols = [
+      { key: config.fields.page.path || 'path', title: 'Path' },
+      { key: config.fields.page.name || 'name', title: '名称' },
+      { key: config.fields.page.id || 'id', title: 'ID' },
+    ];
 
-      function createListCard({ title, columns, load, okText, errText }) {
-        return createTableCard({
-          title,
-          columns,
-          onReload: async ({ setData, setLoading, clearSelection }) => {
-            const cfg = getConfig();
-            setLoading(true);
-            try {
-              const list = await load(cfg);
-              clearSelection();
-              setData(list);
-              logger.ok(`${okText}：${list.length} 条`);
-            } catch (e) {
-              logger.error(errText, e);
-            } finally {
-              setLoading(false);
-            }
-          },
-        });
-      }
-
-      const loadRoles = (cfg) => loadList(cfg, cfg.api.roles, { type: 'role', fields: cfg.fields.role });
-      const originalRolesCard = createListCard({
-        title: '原角色清单（多选）',
-        columns: roleCols,
-        load: loadRoles,
-        okText: '原角色加载完成',
-        errText: '原角色加载失败',
+    function createListCard({ title, columns, load, okText, errText }) {
+      return createTableCard({
+        title,
+        columns,
+        onReload: async ({ setData, setLoading, clearSelection }) => {
+          const cfg = getConfig();
+          setLoading(true);
+          try {
+            const list = await load(cfg);
+            clearSelection();
+            setData(list);
+            logger.ok(`${okText}：${list.length} 条`);
+          } catch (e) {
+            logger.error(errText, e);
+          } finally {
+            setLoading(false);
+          }
+        },
       });
+    }
 
-      const targetRolesCard = createListCard({
-        title: '目标角色清单（多选）',
-        columns: roleCols,
-        load: loadRoles,
-        okText: '目标角色加载完成',
-        errText: '目标角色加载失败',
-      });
+    const loadRoles = (cfg) => loadList(cfg, cfg.api.roles, { type: 'role', fields: cfg.fields.role });
+    const originalRolesCard = createListCard({
+      title: '原角色清单（多选）',
+      columns: roleCols,
+      load: loadRoles,
+      okText: '原角色加载完成',
+      errText: '原角色加载失败',
+    });
 
-      const permissionsCard = createListCard({
-        title: '权限点清单（多选）',
-        columns: permCols,
-        load: (cfg) => loadList(cfg, cfg.api.permissions, { type: 'permission', fields: cfg.fields.permission }),
-        okText: '权限点加载完成',
-        errText: '权限点加载失败',
-      });
+    const targetRolesCard = createListCard({
+      title: '目标角色清单（多选）',
+      columns: roleCols,
+      load: loadRoles,
+      okText: '目标角色加载完成',
+      errText: '目标角色加载失败',
+    });
 
-      const pagesCard = createListCard({
-        title: '页面清单（多选）',
-        columns: pageCols,
-        load: (cfg) => loadList(cfg, cfg.api.pages, { type: 'page', fields: cfg.fields.page }),
-        okText: '页面加载完成',
-        errText: '页面加载失败',
-      });
+    const permissionsCard = createListCard({
+      title: '权限点清单（多选）',
+      columns: permCols,
+      load: (cfg) => loadList(cfg, cfg.api.permissions, { type: 'permission', fields: cfg.fields.permission }),
+      okText: '权限点加载完成',
+      errText: '权限点加载失败',
+    });
+
+    const pagesCard = createListCard({
+      title: '页面清单（多选）',
+      columns: pageCols,
+      load: (cfg) => loadList(cfg, cfg.api.pages, { type: 'page', fields: cfg.fields.page }),
+      okText: '页面加载完成',
+      errText: '页面加载失败',
+    });
 
     body.appendChild(originalRolesCard.el);
     body.appendChild(targetRolesCard.el);
@@ -907,6 +925,11 @@
 
     logger.info('提示：先点“全部刷新”加载四张表；接口无分页时可在这里前端分页/过滤/多选。');
   }
+
+// ---- footer.user.js ----
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 })();
+
+

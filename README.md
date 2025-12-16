@@ -146,3 +146,43 @@
 - 若要进一步工程化：将脚本拆成 `src/` 模块并构建输出单文件 `dist/*.user.js`（便于测试与迭代）
 - 若要提升审计与可用性：增加“预览变更摘要/二次确认/导出变更明细/操作可用态提示/进度展示”等
 
+---
+
+## 开发与构建（src 模块化）
+
+本仓库采用“源代码多文件 + 构建输出单文件 userscript”的方式：
+
+- 源码目录：`src/`
+- 构建脚本：`scripts/build.mjs`
+- 输出文件（可直接安装）：`permission_matrix_maintainer.user.js`
+
+构建命令：
+
+```bash
+node scripts/build.mjs
+```
+
+目录结构（节选）：
+
+```text
+src/
+  header.user.js            # userscript 元信息 + IIFE 开头
+  footer.user.js            # IIFE 结尾 + 启动
+  core/
+    constants.js            # 常量（DOM_IDS / BIND_MODE 等）
+    defaultConfig.js        # 默认配置
+    configStore.js          # 配置读写/工具函数
+  infra/
+    gmRequestJson.js        # GM_xmlhttpRequest JSON 封装
+  ui/
+    dom.js                  # DOM 工具 el()
+    styles.js               # 样式注入
+    logger.js               # 日志组件
+    tableCard.js            # 表格组件（过滤/分页/多选）
+    modal.js                # 配置弹窗
+  domain/
+    api.js                  # 领域 API（loadList / bindItemsToRoles 等）
+  app/
+    mount.js                # 应用装配与事件绑定
+```
+
